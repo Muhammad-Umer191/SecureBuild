@@ -1,0 +1,12 @@
+.sev-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 1px 9px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; line-height: 20px; white-space: nowrap;
+}
+.sev-badge__score { font-weight: 500; opacity: 0.85; padding-left: 6px; border-left: 1px solid currentColor; }
+.sev-badge--critical { color: var(--sev-critical-fg); background: var(--sev-critical-bg); }
+.sev-badge--high { color: var(--sev-high-fg); background: var(--sev-high-bg); }
+.sev-badge--medium { color: var(--sev-medium-fg); background: var(--sev-medium-bg); }
+.sev-badge--low { color: var(--sev-low-fg); background: var(--sev-low-bg); }
+.sev-badge--none { color: var(--sev-none-fg); background: var(--sev-none-bg); }
+.sev-badge--unknown { color: var(--sev-unknown-fg); background: var(--sev-unknown-bg); border: 1px dashed var(--color-border-strong); }
