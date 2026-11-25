@@ -2,13 +2,17 @@
   "name": "securebuild-backend",
   "version": "1.0.0",
   "private": true,
-  "description": "SecureBuild API – CI-style supply-chain risk scanner",
+  "description": "SecureBuild API - CI-style supply-chain risk scanner",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "test": "jest --forceExit --detectOpenHandles",
     "test:watch": "jest --watch --forceExit --detectOpenHandles",
+    "test:services": "jest tests/services",
+    "test:network": "NETWORK_TESTS=1 jest tests/services",
+    "try:clone": "node scripts/try-clone.js",
+    "try:discover": "node scripts/try-discover.js",
     "lint": "eslint src/",
     "seed": "node src/scripts/seed.js",
     "demo": "node src/scripts/seed.js && npm start"
