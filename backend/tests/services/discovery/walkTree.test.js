@@ -1,7 +1,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { walkTree } = require('../../../src/services/discovery/walkTree');
-const { makeRepo, removeRepo } = require('./helpers');
+const { makeRepo, removeRepo } = require('../helpers');
 
 let root;
 afterEach(() => removeRepo(root));

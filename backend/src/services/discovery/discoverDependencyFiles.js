@@ -9,7 +9,8 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { walkTree } = require('./walkTree');
 const { selectSources } = require('./selectSources');
-const { KNOWN_FILES, DEFAULT_IGNORE_DIRS, DEFAULT_SKIP_DIRS } = require('./fileTypes');
+const { DEFAULT_IGNORE_DIRS, DEFAULT_SKIP_DIRS } = require('./fileTypes');
+const { registry: defaultRegistry } = require('../ecosystems');
 
 /**
  * @param {string} rootDir  Cloned repo folder
@@ -19,6 +20,7 @@ const { KNOWN_FILES, DEFAULT_IGNORE_DIRS, DEFAULT_SKIP_DIRS } = require('./fileT
  * @param {number} [opts.maxEntries=100000]
  * @param {string[]} [opts.skipDirs]    test/example folder names (files there are skipped and counted)
  * @param {string[]} [opts.ignoreDirs]  folder names never entered
+ * @param {Object} [opts.registry]      ecosystem registry (default: npm + PyPI)
  * @returns {Promise<{sources: Object[], warnings: string[], stats: Object}>}
  */
 async function discoverDependencyFiles(rootDir, opts = {}) {
@@ -28,12 +30,13 @@ async function discoverDependencyFiles(rootDir, opts = {}) {
     maxEntries = 100_000,
     skipDirs = DEFAULT_SKIP_DIRS,
     ignoreDirs = DEFAULT_IGNORE_DIRS,
+    registry = defaultRegistry,
   } = opts;
   const maxBytes = maxFileSizeMb * 1024 * 1024;
   const warnings = [];
 
   const { files, stats, truncated } = await walkTree(rootDir, {
-    fileNames: KNOWN_FILES, ignoreDirs, skipDirs, maxDepth, maxEntries,
+    fileNames: registry.knownFiles, ignoreDirs, skipDirs, maxDepth, maxEntries,
   });
 
   const skippedCount = files.filter((f) => f.skipped).length;
@@ -54,7 +57,7 @@ async function discoverDependencyFiles(rootDir, opts = {}) {
   }
 
   usable.sort((a, b) => a.path.localeCompare(b.path));
-  const { sources, warnings: sourceWarnings } = selectSources(usable);
+  const { sources, warnings: sourceWarnings } = selectSources(usable, registry);
   warnings.push(...sourceWarnings);
 
   if (truncated === 'depth') {
@@ -63,7 +66,7 @@ async function discoverDependencyFiles(rootDir, opts = {}) {
     warnings.push(`Search stopped after ${maxEntries} entries; results may be incomplete`);
   }
   if (!sources.length) {
-    warnings.push('No dependency files found (package-lock.json, poetry.lock, package.json, pyproject.toml, requirements.txt)');
+    warnings.push(`No dependency files found (${registry.supportedFiles.join(', ')})`);
   }
 
   return { sources, warnings, stats };

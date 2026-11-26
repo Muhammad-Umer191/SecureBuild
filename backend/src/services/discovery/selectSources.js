@@ -1,19 +1,18 @@
 // Decides which dependency files to scan, and explains what can't be scanned.
-// Pure function: works on the file list from walkTree, no disk access.
+// Pure function: works on the file list from walkTree, no disk access. All
+// ecosystem knowledge comes from the registry.
 //
 // - A lockfile is always used (exact versions, full dependency tree).
-// - A manifest is used only as a fallback when no lockfile covers it, and
-//   its results are approximate (direct dependencies, estimated versions).
-//   npm: covered by a package-lock.json in the same folder or any parent
-//        (npm workspaces share the root lockfile). A yarn.lock or
-//        pnpm-lock.yaml (unsupported) covers sub-folders only: its own
-//        package.json is still used, but workspace packages below it are not,
-//        so a big monorepo gives one approximate source instead of hundreds.
-//   PyPI: covered by a poetry.lock in the same folder.
-const { LOCKFILES, MANIFESTS, UNSUPPORTED_LOCKFILES } = require('./fileTypes');
-
-const MAX_LISTED = 5;
-const NPM_UNSUPPORTED = Object.keys(UNSUPPORTED_LOCKFILES).filter((n) => UNSUPPORTED_LOCKFILES[n] === 'npm');
+// - A manifest is used only as a fallback when no lockfile of its ecosystem
+//   covers it; its results are approximate (direct deps, estimated versions).
+//   A lockfile covers manifests in its own folder, and also in sub-folders
+//   when the ecosystem's lockfileScope is 'subtree' (npm workspaces).
+// - An unsupported lockfile (e.g. yarn.lock) can't be read, so the manifests
+//   next to it are used instead. With scope 'subtree' it still covers the
+//   sub-folders, so a big monorepo gives one approximate source instead of
+//   hundreds of workspace packages.
+const { capMessages, listNames } = require('../common/warnings');
+const { registry: defaultRegistry } = require('../ecosystems');
 
 const join = (dir, name) => (dir ? `${dir}/${name}` : name);
 const where = (dir) => (dir ? `${dir}/` : 'the repo root');
@@ -29,81 +28,79 @@ function selfAndParents(dir) {
   return dirs;
 }
 
-/** Up to 5 messages are kept as they are; more are folded into one summary line. */
-function capMessages(messages, summarize) {
-  if (messages.length <= MAX_LISTED) return messages.map((m) => m.text);
-  return [summarize(messages.map((m) => m.path))];
-}
-
-const listPaths = (paths) =>
-  `${paths.slice(0, MAX_LISTED).join(', ')}${paths.length > MAX_LISTED ? `, and ${paths.length - MAX_LISTED} more` : ''}`;
+const isBelow = (dir, parent) => dir !== parent && (parent === '' || dir.startsWith(`${parent}/`));
 
 /**
  * @param {{path: string, dir: string, name: string}[]} files  sorted by path
+ * @param {Object} [registry]  ecosystem registry
  * @returns {{
  *   sources: {path, filename, ecosystem, kind: 'lockfile'|'manifest', manifestPath: string|null}[],
  *   warnings: string[]
  * }}
  */
-function selectSources(files) {
+function selectSources(files, registry = defaultRegistry) {
   const namesByDir = new Map();
   files.forEach((f) => {
     if (!namesByDir.has(f.dir)) namesByDir.set(f.dir, new Set());
     namesByDir.get(f.dir).add(f.name);
   });
-  const dirHas = (dir, name) => namesByDir.get(dir)?.has(name) || false;
-  const hasUnsupportedNpmLock = (dir) => NPM_UNSUPPORTED.some((name) => dirHas(dir, name));
-  const coveredByLockfile = (dir, ecosystem) => {
-    if (ecosystem !== 'npm') return dirHas(dir, 'poetry.lock');
-    const dirs = selfAndParents(dir);
-    return dirs.some((d) => dirHas(d, 'package-lock.json')) || dirs.slice(1).some(hasUnsupportedNpmLock);
+  const dirHasAny = (dir, names) => names.some((n) => namesByDir.get(dir)?.has(n));
+  const lockNames = (eco) => eco.lockfiles.map((l) => l.filename);
+  const manifestNames = (eco) => eco.manifests.map((m) => m.filename);
+
+  const coveredByLockfile = (dir, eco) => {
+    if (dirHasAny(dir, lockNames(eco))) return true;
+    if (eco.lockfileScope !== 'subtree') return false;
+    const parents = selfAndParents(dir).slice(1);
+    return parents.some((d) => dirHasAny(d, [...lockNames(eco), ...eco.unsupportedLockfiles]));
   };
-  // package.json files in folders below `dir` (workspace packages)
-  const packagesBelow = (dir) =>
-    files.filter((p) => p.name === 'package.json' && p.dir !== dir && (dir === '' || p.dir.startsWith(`${dir}/`))).length;
 
   const sources = [];
   const approximate = [];
   const unsupported = [];
 
   for (const f of files) {
-    if (LOCKFILES[f.name]) {
-      const { ecosystem, manifest } = LOCKFILES[f.name];
+    const entry = registry.lookup(f.name);
+    if (!entry) continue;
+    const { eco, kind, handler } = entry;
+
+    if (kind === 'lockfile') {
       sources.push({
         path: f.path,
         filename: f.name,
-        ecosystem,
+        ecosystem: eco.ecosystem,
         kind: 'lockfile',
-        manifestPath: dirHas(f.dir, manifest) ? join(f.dir, manifest) : null,
+        manifestPath: handler.companion && dirHasAny(f.dir, [handler.companion]) ? join(f.dir, handler.companion) : null,
       });
-    } else if (MANIFESTS[f.name]) {
-      const ecosystem = MANIFESTS[f.name];
-      if (!coveredByLockfile(f.dir, ecosystem)) {
-        sources.push({ path: f.path, filename: f.name, ecosystem, kind: 'manifest', manifestPath: null });
-        // Next to a yarn/pnpm lockfile, that lockfile's warning already explains this.
-        if (ecosystem === 'npm' && hasUnsupportedNpmLock(f.dir)) continue;
-        approximate.push({
-          path: f.path,
-          text: `${f.path}: no lockfile, so only direct dependencies are scanned and their versions are estimated`,
-        });
-      }
-    } else if (UNSUPPORTED_LOCKFILES[f.name]) {
-      const isNpm = UNSUPPORTED_LOCKFILES[f.name] === 'npm';
-      const usingFallback = isNpm && dirHas(f.dir, 'package.json') && !coveredByLockfile(f.dir, 'npm');
-      let text = usingFallback
-        ? `${f.path} is not supported yet; using ${join(f.dir, 'package.json')} instead (approximate)`
+    } else if (kind === 'manifest') {
+      if (coveredByLockfile(f.dir, eco)) continue;
+      sources.push({ path: f.path, filename: f.name, ecosystem: eco.ecosystem, kind: 'manifest', manifestPath: null });
+      // Next to an unsupported lockfile, that lockfile's warning already explains this.
+      if (dirHasAny(f.dir, eco.unsupportedLockfiles)) continue;
+      approximate.push({
+        path: f.path,
+        text: `${f.path}: no lockfile, so only direct dependencies are scanned and their versions are estimated`,
+      });
+    } else {
+      const fallbacks = coveredByLockfile(f.dir, eco)
+        ? []
+        : manifestNames(eco).filter((m) => dirHasAny(f.dir, [m])).map((m) => join(f.dir, m));
+      let text = fallbacks.length
+        ? `${f.path} is not supported yet; using ${fallbacks.join(', ')} instead (approximate)`
         : `${f.path} is not supported yet; dependencies in ${where(f.dir)} were not scanned`;
-      const workspaces = isNpm ? packagesBelow(f.dir) : 0;
-      if (workspaces) text += `. ${workspaces} workspace packages under it were not scanned`;
+      if (eco.lockfileScope === 'subtree') {
+        const below = files.filter((p) => manifestNames(eco).includes(p.name) && isBelow(p.dir, f.dir)).length;
+        if (below) text += `. ${below} workspace packages under it were not scanned`;
+      }
       unsupported.push({ path: f.path, text });
     }
   }
 
   const warnings = [
     ...capMessages(approximate, (paths) =>
-      `${paths.length} folders have no lockfile, so only direct dependencies are scanned and their versions are estimated: ${listPaths(paths)}`),
+      `${paths.length} folders have no lockfile, so only direct dependencies are scanned and their versions are estimated: ${listNames(paths)}`),
     ...capMessages(unsupported, (paths) =>
-      `${paths.length} unsupported lockfiles (yarn/pnpm/Pipenv) were not read: ${listPaths(paths)}`),
+      `${paths.length} unsupported lockfiles were not read: ${listNames(paths)}`),
   ];
 
   return { sources, warnings };

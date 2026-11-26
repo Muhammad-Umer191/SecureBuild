@@ -1,5 +1,5 @@
 const { discoverDependencyFiles } = require('../../../src/services/discovery');
-const { makeRepo, removeRepo } = require('./helpers');
+const { makeRepo, removeRepo } = require('../helpers');
 
 let root;
 afterEach(() => removeRepo(root));
