@@ -5,11 +5,9 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const config = require('./config');
 
-const authRoutes = require('./routes/auth.routes');
-const repoRoutes = require('./routes/repo.routes');
-const scanRoutes = require('./routes/scan.routes');
-const findingRoutes = require('./routes/finding.routes');
-const componentRoutes = require('./routes/component.routes');
+const authRoutes = require('./routes/authRoutes');
+const scanRoutes = require('./routes/scanRoutes');
+const vulnerabilityRoutes = require('./routes/vulnerabilityRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -29,10 +27,8 @@ app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
 // ── Routes ─────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
-app.use('/api/repos', repoRoutes);
-app.use('/api/scans', scanRoutes);
-app.use('/api/findings', findingRoutes);
-app.use('/api/repos', componentRoutes);
+app.use('/api/scan', scanRoutes);
+app.use('/api/vulnerability', vulnerabilityRoutes);
 
 // ── Error handler (must be last) ───────────────────────
 app.use(errorHandler);
