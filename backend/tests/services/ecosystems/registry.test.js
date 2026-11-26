@@ -29,6 +29,7 @@ describe('createRegistry validation', () => {
     lockfileScope: 'folder',
     normalizeName: (n) => n,
     purl: (n, v) => `pkg:golang/${n}@${v}`,
+    compareVersions: (a, b) => a.localeCompare(b),
   };
 
   test('accepts a complete descriptor', () => {
@@ -46,6 +47,7 @@ describe('createRegistry validation', () => {
     }, /companion nope.mod must also be listed/],
     ['a missing purl()', { ...valid, purl: undefined }, /purl must be a function/],
     ['a missing normalizeName()', { ...valid, normalizeName: 'lowercase' }, /normalizeName must be a function/],
+    ['a missing compareVersions()', { ...valid, compareVersions: undefined }, /compareVersions must be a function/],
   ])('rejects %s', (_label, descriptor, message) => {
     expect(() => createRegistry([descriptor])).toThrow(message);
   });
@@ -91,6 +93,7 @@ describe('adding an ecosystem needs no changes to discovery or parsers', () => {
     lockfileScope: 'folder',
     normalizeName: (n) => n,
     purl: (n, v) => `pkg:golang/${n}@${v}`,
+    compareVersions: (a, b) => a.localeCompare(b),
   };
   const withGo = createRegistry([...DEFAULT_ECOSYSTEMS, go]);
 

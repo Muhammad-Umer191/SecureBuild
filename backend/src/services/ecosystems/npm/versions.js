@@ -32,4 +32,14 @@ function npmLowest(range) {
   return { version: min.version };
 }
 
-module.exports = { npmLowest };
+/**
+ * Orders two npm versions (semver): negative if a < b, 0 if equal, positive
+ * if a > b. Returns null when either isn't a valid version, so callers can
+ * tell "can't compare" apart from an answer.
+ */
+function compareNpmVersions(a, b) {
+  if (!semver.valid(a) || !semver.valid(b)) return null;
+  return semver.compare(a, b);
+}
+
+module.exports = { npmLowest, compareNpmVersions };

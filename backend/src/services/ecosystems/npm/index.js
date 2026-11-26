@@ -2,6 +2,7 @@
 const { parseNpmLockfile } = require('./lockfile');
 const { parsePackageJson } = require('./manifest');
 const { normalizeNpmName, npmPurl } = require('./names');
+const { compareNpmVersions } = require('./versions');
 
 module.exports = {
   ecosystem: 'npm',
@@ -16,4 +17,5 @@ module.exports = {
   lockfileScope: 'subtree',
   normalizeName: normalizeNpmName,
   purl: npmPurl,
+  compareVersions: compareNpmVersions,
 };

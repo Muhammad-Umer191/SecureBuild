@@ -3,6 +3,7 @@ const { parsePoetryLockfile } = require('./poetryLock');
 const { parsePyprojectManifest } = require('./pyproject');
 const { parseRequirementsTxt } = require('./requirements');
 const { normalizePypiName, pypiPurl } = require('./names');
+const { comparePypiVersions } = require('./versions');
 
 module.exports = {
   ecosystem: 'PyPI',
@@ -18,4 +19,5 @@ module.exports = {
   lockfileScope: 'folder',
   normalizeName: normalizePypiName,
   purl: pypiPurl,
+  compareVersions: comparePypiVersions,
 };

@@ -5,8 +5,7 @@
 //   npm run try:clone -- https://github.com/expressjs/express
 //   npm run try:clone -- https://github.com/expressjs/express --max-mb 1 --timeout 5000
 const fs = require('node:fs/promises');
-const { withClone, isValidRepoUrl } = require('../src/services/clone');
-const { dirSize } = require('../src/services/clone/dirSize');
+const { withClone, isValidRepoUrl, dirSize } = require('../src/services/clone');
 
 function parseArgs(argv) {
   const [url, ...rest] = argv;

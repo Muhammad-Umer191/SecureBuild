@@ -1,9 +1,14 @@
-// Estimates the version a Python requirement would install, for the fallback
-// when there is no lockfile. Like npm, we take the LOWEST version allowed.
+// Python version helpers.
 //
-// Handles PEP 440 specifiers (==, ===, >=, ~=, <, >, !=, comma = "and") and
-// Poetry's extras (^, ~, bare versions, "||" = "or").
+// pypiLowest: estimates the version a requirement would install, for the
+// fallback when there is no lockfile. Like npm, we take the LOWEST version
+// allowed. Handles PEP 440 specifiers (==, ===, >=, ~=, <, >, !=, comma = "and")
+// and Poetry's extras (^, ~, bare versions, "||" = "or").
 // Results: { version } or { reason: 'unbounded' | 'invalid' }.
+//
+// comparePypiVersions: exact PEP 440 ordering (2.0rc1 < 2.0 < 2.0.post1,
+// epochs like 1!0.5), via @renovatebot/pep440.
+const pep440 = require('@renovatebot/pep440');
 
 const CLAUSE = /^(===|==|~=|>=|<=|!=|>|<|\^|~|=)?v?([0-9][0-9A-Za-z.!+*-]*)$/;
 // Operators whose version is the lowest allowed (a bare version means ==).
@@ -60,4 +65,13 @@ function pypiLowest(spec) {
   return { reason: invalid ? 'invalid' : 'unbounded' };
 }
 
-module.exports = { pypiLowest, compareLoose };
+/**
+ * Orders two Python versions (PEP 440): negative if a < b, 0 if equal,
+ * positive if a > b. Returns null when either isn't a valid version.
+ */
+function comparePypiVersions(a, b) {
+  if (!pep440.valid(a) || !pep440.valid(b)) return null;
+  return pep440.compare(a, b);
+}
+
+module.exports = { pypiLowest, compareLoose, comparePypiVersions };

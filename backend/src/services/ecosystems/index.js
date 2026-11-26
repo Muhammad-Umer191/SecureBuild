@@ -15,6 +15,7 @@
 //   lockfileScope         'subtree' (covers sub-folders, e.g. workspaces) | 'folder'
 //   normalizeName(name)   canonical spelling, used to match and de-duplicate
 //   purl(name, version)   package URL, e.g. "pkg:npm/express@4.17.1"
+//   compareVersions(a, b) <0, 0, >0 like a sort comparator; null if either isn't a valid version
 //
 //   format: 'json' | 'toml' | 'text' - the parsers read and decode the file
 //   parse(content, { source, companion, readFile }) -> { components, warnings }
@@ -45,7 +46,7 @@ function validate(eco) {
     }
   }
   if (!SCOPES.has(eco.lockfileScope)) throw new Error(`${where}: lockfileScope must be 'subtree' or 'folder'`);
-  for (const fn of ['normalizeName', 'purl']) {
+  for (const fn of ['normalizeName', 'purl', 'compareVersions']) {
     if (typeof eco[fn] !== 'function') throw new Error(`${where}: ${fn} must be a function`);
   }
 }
