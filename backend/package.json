@@ -16,6 +16,7 @@
     "try:parse": "node scripts/try-parse.js",
     "scan": "node scripts/scan-cli.js",
     "lint": "eslint src/",
+    "db:init": "node src/scripts/initDb.js",
     "seed": "node src/scripts/seed.js",
     "demo": "node src/scripts/seed.js && npm start"
   },
