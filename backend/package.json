@@ -10,6 +10,7 @@
     "test": "jest --forceExit --detectOpenHandles",
     "test:watch": "jest --watch --forceExit --detectOpenHandles",
     "lint": "eslint src/",
+    "db:init": "node src/scripts/initDb.js",
     "seed": "node src/scripts/seed.js",
     "demo": "node src/scripts/seed.js && npm start"
   },
