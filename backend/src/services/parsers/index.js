@@ -1,10 +1,15 @@
-// Parsers module: turns the dependency files found by discovery into a list
-// of raw components (the SBOM before purls and de-duplication).
+// Parsers module: turns the dependency files found by discovery into the
+// SBOM, one Component per package version, identified by its purl.
 //
-// This module knows nothing about npm or Python: it looks each file up in the
-// ecosystem registry, reads and decodes it safely, and hands it to that
-// ecosystem's parse(). Import from here (require('./services/parsers')).
+//   1. each file      looked up in the ecosystem registry, read and decoded
+//                     safely, and handed to that ecosystem's parse()
+//   2. all files      combined by normalizeComponents(): purls, canonical
+//                     names, duplicates merged (see normalizeComponents.js)
+//
+// This module knows nothing about npm or Python; that lives in the ecosystem
+// folders. Import from here (require('./services/parsers')).
 const { readSourceFile } = require('./readSourceFile');
+const { normalizeComponents } = require('./normalizeComponents');
 const { ParseError } = require('../common/errors');
 const { registry: defaultRegistry } = require('../ecosystems');
 
@@ -43,23 +48,27 @@ async function parseOne(rootDir, src, registry, warnings) {
  * @param {Object[]} sources  from discovery: {path, filename, ecosystem, kind, manifestPath}
  * @param {Object} [opts]
  * @param {Object} [opts.registry]  ecosystem registry (default: npm + PyPI)
- * @returns {Promise<{components: Object[], warnings: string[]}>}
- *          A file that can't be parsed adds a warning; the others still count.
+ * @returns {Promise<{
+ *   components: import('./normalizeComponents').Component[],
+ *   warnings: string[],
+ *   stats: {raw: number, unique: number, duplicatesMerged: number, linksDropped: number}
+ * }>}  A file that can't be parsed adds a warning; the others still count.
  */
 async function parseSources(rootDir, sources, { registry = defaultRegistry } = {}) {
-  const components = [];
+  const raw = [];
   const warnings = [];
   for (const src of sources) {
     try {
       const result = await parseOne(rootDir, src, registry, warnings);
-      components.push(...result.components);
+      raw.push(...result.components);
       warnings.push(...result.warnings);
     } catch (err) {
       if (!(err instanceof ParseError)) throw err;
       warnings.push(err.message);
     }
   }
-  return { components, warnings };
+  const { components, stats } = normalizeComponents(raw, { registry });
+  return { components, warnings, stats };
 }
 
 module.exports = { parseSources, ParseError };

@@ -14,6 +14,7 @@
     "try:clone": "node scripts/try-clone.js",
     "try:discover": "node scripts/try-discover.js",
     "try:parse": "node scripts/try-parse.js",
+    "try:osv": "node scripts/try-osv.js",
     "lint": "eslint src/",
     "seed": "node src/scripts/seed.js",
     "demo": "node src/scripts/seed.js && npm start"

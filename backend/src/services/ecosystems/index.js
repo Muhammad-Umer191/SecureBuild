@@ -13,6 +13,8 @@
 //                           lockfile covers them (results are approximate)
 //   unsupportedLockfiles  [filename]  recognised but not parsed: warning only
 //   lockfileScope         'subtree' (covers sub-folders, e.g. workspaces) | 'folder'
+//   normalizeName(name)   canonical spelling, used to match and de-duplicate
+//   purl(name, version)   package URL, e.g. "pkg:npm/express@4.17.1"
 //
 //   format: 'json' | 'toml' | 'text' - the parsers read and decode the file
 //   parse(content, { source, companion, readFile }) -> { components, warnings }
@@ -43,6 +45,9 @@ function validate(eco) {
     }
   }
   if (!SCOPES.has(eco.lockfileScope)) throw new Error(`${where}: lockfileScope must be 'subtree' or 'folder'`);
+  for (const fn of ['normalizeName', 'purl']) {
+    if (typeof eco[fn] !== 'function') throw new Error(`${where}: ${fn} must be a function`);
+  }
 }
 
 /**
@@ -52,6 +57,7 @@ function validate(eco) {
  */
 function createRegistry(ecosystems = DEFAULT_ECOSYSTEMS) {
   const byFile = new Map();
+  const byName = new Map();
   const claim = (filename, entry) => {
     if (byFile.has(filename)) {
       throw new Error(`${filename} is claimed by both ${byFile.get(filename).eco.ecosystem} and ${entry.eco.ecosystem}`);
@@ -61,6 +67,8 @@ function createRegistry(ecosystems = DEFAULT_ECOSYSTEMS) {
 
   for (const eco of ecosystems) {
     validate(eco);
+    if (byName.has(eco.ecosystem)) throw new Error(`ecosystem "${eco.ecosystem}" is registered twice`);
+    byName.set(eco.ecosystem, eco);
     eco.lockfiles.forEach((handler) => claim(handler.filename, { eco, kind: 'lockfile', handler }));
     eco.manifests.forEach((handler) => claim(handler.filename, { eco, kind: 'manifest', handler }));
     eco.unsupportedLockfiles.forEach((filename) => claim(filename, { eco, kind: 'unsupported', handler: null }));
@@ -70,6 +78,8 @@ function createRegistry(ecosystems = DEFAULT_ECOSYSTEMS) {
     ecosystems,
     /** @returns {{eco, kind: 'lockfile'|'manifest'|'unsupported', handler}|undefined} */
     lookup: (filename) => byFile.get(filename),
+    /** The descriptor for an ecosystem name ('npm', 'PyPI'), or undefined. */
+    get: (ecosystem) => byName.get(ecosystem),
     /** Every file name discovery should look for. */
     knownFiles: new Set(byFile.keys()),
     /** Supported file names, lockfiles first, e.g. for "no dependency files found". */

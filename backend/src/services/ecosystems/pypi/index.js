@@ -2,6 +2,7 @@
 const { parsePoetryLockfile } = require('./poetryLock');
 const { parsePyprojectManifest } = require('./pyproject');
 const { parseRequirementsTxt } = require('./requirements');
+const { normalizePypiName, pypiPurl } = require('./names');
 
 module.exports = {
   ecosystem: 'PyPI',
@@ -15,4 +16,6 @@ module.exports = {
   unsupportedLockfiles: ['Pipfile.lock'],
   // Poetry has no workspaces: a poetry.lock covers only its own folder.
   lockfileScope: 'folder',
+  normalizeName: normalizePypiName,
+  purl: pypiPurl,
 };

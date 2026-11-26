@@ -27,6 +27,8 @@ describe('createRegistry validation', () => {
     manifests: [{ filename: 'go.mod', format: 'text', parse: () => ({}) }],
     unsupportedLockfiles: [],
     lockfileScope: 'folder',
+    normalizeName: (n) => n,
+    purl: (n, v) => `pkg:golang/${n}@${v}`,
   };
 
   test('accepts a complete descriptor', () => {
@@ -42,8 +44,21 @@ describe('createRegistry validation', () => {
     ['a companion that is not a manifest', {
       ...valid, lockfiles: [{ filename: 'go.sum', format: 'text', companion: 'nope.mod', parse: () => ({}) }],
     }, /companion nope.mod must also be listed/],
+    ['a missing purl()', { ...valid, purl: undefined }, /purl must be a function/],
+    ['a missing normalizeName()', { ...valid, normalizeName: 'lowercase' }, /normalizeName must be a function/],
   ])('rejects %s', (_label, descriptor, message) => {
     expect(() => createRegistry([descriptor])).toThrow(message);
+  });
+
+  test('rejects the same ecosystem registered twice', () => {
+    expect(() => createRegistry([valid, valid])).toThrow('ecosystem "Go" is registered twice');
+  });
+
+  test('looks descriptors up by ecosystem name', () => {
+    const reg = createRegistry([...DEFAULT_ECOSYSTEMS, valid]);
+    expect(reg.get('Go')).toBe(valid);
+    expect(reg.get('PyPI').ecosystem).toBe('PyPI');
+    expect(reg.get('Cargo')).toBeUndefined();
   });
 
   test('rejects two ecosystems claiming the same file', () => {
@@ -74,13 +89,15 @@ describe('adding an ecosystem needs no changes to discovery or parsers', () => {
     manifests: [{ filename: 'go.mod', format: 'text', parse: () => ({ components: [], warnings: [] }) }],
     unsupportedLockfiles: [],
     lockfileScope: 'folder',
+    normalizeName: (n) => n,
+    purl: (n, v) => `pkg:golang/${n}@${v}`,
   };
   const withGo = createRegistry([...DEFAULT_ECOSYSTEMS, go]);
 
   let root;
   afterEach(() => removeRepo(root));
 
-  test('discovery finds go.sum and parsing reads it, next to npm', async () => {
+  test('discovery and parsing (including purls) both handle go.sum next to npm', async () => {
     root = await makeRepo({
       'svc/go.mod': 'module svc\nrequire github.com/pkg/errors v0.9.1\n',
       'svc/go.sum': 'github.com/pkg/errors v0.9.1 h1:abc\ngolang.org/x/text v0.3.0 h1:def\n',
@@ -98,6 +115,11 @@ describe('adding an ecosystem needs no changes to discovery or parsers', () => {
       'Go:github.com/pkg/errors@v0.9.1 direct',
       'Go:golang.org/x/text@v0.3.0',
       'npm:express@4.0.0 direct',
+    ]);
+    expect(components.map((c) => c.purl)).toEqual([
+      'pkg:golang/github.com/pkg/errors@v0.9.1',
+      'pkg:golang/golang.org/x/text@v0.3.0',
+      'pkg:npm/express@4.0.0',
     ]);
   });
 
