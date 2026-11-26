@@ -10,7 +10,7 @@
 const { registry: defaultRegistry } = require('../ecosystems');
 const { listNames } = require('../common/warnings');
 const { mergeAliases } = require('./mergeAliases');
-const { scoreRecords, SEVERITY_RANK } = require('./cvssScore');
+const { scoreRecords, severityFromScore, SEVERITY_RANK } = require('./cvssScore');
 const { fixForGroup, recommendUpgrade } = require('./fixVersion');
 
 /**
@@ -129,4 +129,5 @@ function buildFindings(components, matches, { registry = defaultRegistry } = {})
   };
 }
 
-module.exports = { buildFindings };
+// severityFromScore is shared with the CycloneDX export.
+module.exports = { buildFindings, severityFromScore };
