@@ -196,6 +196,13 @@
   margin-top: 2px;
 }
 
+.shell__scan-meta--running {
+  color: var(--color-accent);
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+}
+
 .shell__actions {
   display: flex;
   align-items: center;

@@ -12,11 +12,11 @@ const STATUS_LABELS = {
 };
 
 /**
- * Displays past scan runs for the currently selected repository.
- * Props: repoId, refreshKey
+ * Displays scan runs for the currently selected repository.
+ * Props: repoId, latestScan?, refreshKey
  */
-export default function ScanHistoryTab({ repoId, refreshKey = 0 }) {
-  const [state, setState] = useState({ status: 'loading', items: [], error: null });
+export default function ScanHistoryTab({ repoId, latestScan = null, refreshKey = 0 }) {
+  const [state, setState] = useState({ status: 'loading', items: [], limitedToLatest: false, error: null });
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
@@ -24,18 +24,28 @@ export default function ScanHistoryTab({ repoId, refreshKey = 0 }) {
     setState((prev) => ({
       status: prev.items.length > 0 ? 'refreshing' : 'loading',
       items: prev.items,
+      limitedToLatest: prev.limitedToLatest,
       error: null,
     }));
 
-    listScans(repoId).then(
-      (data) => !cancelled && setState({ status: 'ready', items: data?.items || [], error: null }),
-      (error) => !cancelled && setState({ status: 'error', items: [], error }),
+    listScans(repoId, latestScan).then(
+      (data) =>
+        !cancelled &&
+        setState({
+          status: 'ready',
+          items: data?.items || [],
+          limitedToLatest: Boolean(data?.limitedToLatest),
+          error: null,
+        }),
+      (error) =>
+        !cancelled &&
+        setState({ status: 'error', items: [], limitedToLatest: false, error }),
     );
 
     return () => {
       cancelled = true;
     };
-  }, [repoId, refreshKey, reloadKey]);
+  }, [repoId, latestScan, refreshKey, reloadKey]);
 
   const retry = useCallback(() => setReloadKey((k) => k + 1), []);
 
@@ -76,7 +86,9 @@ export default function ScanHistoryTab({ repoId, refreshKey = 0 }) {
         <div>
           <h2 className="scans__title">Scan history</h2>
           <p className="muted scans__subtitle">
-            {state.items.length} recorded {state.items.length === 1 ? 'run' : 'runs'} for this repository
+            {state.limitedToLatest
+              ? 'Showing the latest scan returned by the backend.'
+              : `${state.items.length} recorded ${state.items.length === 1 ? 'run' : 'runs'} for this repository`}
           </p>
         </div>
       </div>
@@ -114,6 +126,8 @@ export default function ScanHistoryTab({ repoId, refreshKey = 0 }) {
                     <td>
                       {scan.error ? (
                         <span className="scans__error">{scan.error}</span>
+                      ) : scan.status === 'queued' || scan.status === 'running' ? (
+                        <span className="muted">Scan in progress...</span>
                       ) : (
                         <span className="muted">Completed cleanly</span>
                       )}

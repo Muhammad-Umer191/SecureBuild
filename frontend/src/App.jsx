@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getMe, logout } from './api/auth.js';
+import { USE_FAKE_API } from './api/client.js';
 import { deleteRepo, listRepos, triggerScan } from './api/repos.js';
 import { EmptyState, ErrorState, Loading } from './components/StateMessage.jsx';
 import LoginPage from './features/auth/LoginPage.jsx';
@@ -118,9 +119,14 @@ export default function App() {
       setBusyAction(true);
       try {
         const scan = await triggerScan(activeRepoId);
+        const stillRunning = scan?.status === 'queued' || scan?.status === 'running';
         setRepoState((prev) => ({
           ...prev,
-          items: prev.items.map((r) => (r.id === activeRepoId ? { ...r, lastScan: scan } : r)),
+          items: prev.items.map((r) =>
+            r.id === activeRepoId
+              ? { ...r, status: stillRunning ? 'scanning' : 'idle', lastScan: scan }
+              : r,
+          ),
         }));
       } catch (err) {
         setActionError(err?.message || 'Scan trigger failed.');
@@ -131,6 +137,44 @@ export default function App() {
     setRefreshKey((k) => k + 1);
   }
 
+  const user = authState.user;
+  const canEdit = user ? user.role === 'admin' || user.role === 'analyst' : false;
+  const activeRepo = repoState.items.find((r) => r.id === activeRepoId) || null;
+  const isScanning = Boolean(
+    activeRepo &&
+      (activeRepo.status === 'scanning' ||
+        activeRepo.lastScan?.status === 'queued' ||
+        activeRepo.lastScan?.status === 'running'),
+  );
+
+  // Poll the backend while a background scan is running, then refresh Findings & SBOM on completion.
+  useEffect(() => {
+    if (!authState.user || !activeRepoId || !isScanning) return undefined;
+
+    const timer = window.setInterval(() => {
+      listRepos().then(
+        (data) => {
+          const items = data?.items || [];
+          setRepoState({ status: 'ready', items, error: null });
+          const updated = items.find((r) => r.id === activeRepoId);
+          const done =
+            updated &&
+            updated.status !== 'scanning' &&
+            updated.lastScan?.status !== 'queued' &&
+            updated.lastScan?.status !== 'running';
+          if (done) {
+            setRefreshKey((k) => k + 1);
+          }
+        },
+        () => {
+          /* ignore transient polling errors */
+        },
+      );
+    }, 3000);
+
+    return () => window.clearInterval(timer);
+  }, [authState.user, activeRepoId, isScanning]);
+
   if (authState.status === 'checking') {
     return (
       <div className="boot-screen">
@@ -139,13 +183,10 @@ export default function App() {
     );
   }
 
-  if (!authState.user) {
-    return <LoginPage onAuthSuccess={(user) => setAuthState({ status: 'ready', user })} />;
+  if (!user) {
+    return <LoginPage onAuthSuccess={(u) => setAuthState({ status: 'ready', user: u })} />;
   }
 
-  const user = authState.user;
-  const canEdit = user.role === 'admin' || user.role === 'analyst';
-  const activeRepo = repoState.items.find((r) => r.id === activeRepoId) || null;
   const safeRepoUrl = activeRepo ? safeHttpUrl(activeRepo.url) : null;
 
   return (
@@ -198,7 +239,7 @@ export default function App() {
                     )}
                   </button>
 
-                  {canEdit && isActive && !isConfirming && (
+                  {USE_FAKE_API && canEdit && isActive && !isConfirming && (
                     <button
                       type="button"
                       className="repo-list__remove"
@@ -262,12 +303,17 @@ export default function App() {
                 'No repository selected'
               )}
             </h1>
-            {activeRepo?.lastScan?.finishedAt && (
+            {activeRepo && isScanning ? (
+              <div className="shell__scan-meta shell__scan-meta--running" role="status">
+                <span className="spinner" aria-hidden="true" />
+                Scanning repository in background...
+              </div>
+            ) : activeRepo?.lastScan?.finishedAt ? (
               <div className="muted shell__scan-meta">
                 Last scan {formatDateTime(activeRepo.lastScan.finishedAt)}
                 {activeRepo.lastScan.commitSha ? ` · ${activeRepo.lastScan.commitSha}` : ''}
               </div>
-            )}
+            ) : null}
           </div>
 
           <div className="shell__actions">
@@ -276,9 +322,9 @@ export default function App() {
                 type="button"
                 className="btn btn--primary"
                 onClick={handleRefresh}
-                disabled={busyAction}
+                disabled={busyAction || isScanning}
               >
-                {busyAction ? 'Scanning...' : 'Refresh'}
+                {busyAction || isScanning ? 'Scanning...' : 'Refresh'}
               </button>
             )}
           </div>
@@ -345,7 +391,12 @@ export default function App() {
                 )}
                 {tab === 'sbom' && <SbomTab key={`${activeRepo.id}-${refreshKey}`} repoId={activeRepo.id} />}
                 {tab === 'history' && (
-                  <ScanHistoryTab key={activeRepo.id} repoId={activeRepo.id} refreshKey={refreshKey} />
+                  <ScanHistoryTab
+                    key={activeRepo.id}
+                    repoId={activeRepo.id}
+                    latestScan={activeRepo.lastScan}
+                    refreshKey={refreshKey}
+                  />
                 )}
               </div>
             </main>
