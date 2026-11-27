@@ -8,6 +8,8 @@ const config = require('./config');
 const authRoutes = require('./routes/authRoutes');
 const scanRoutes = require('./routes/scanRoutes');
 const vulnerabilityRoutes = require('./routes/vulnerabilityRoutes');
+const cveRoutes = require('./routes/cveRoutes');
+const componentRoutes = require('./routes/componentRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -29,6 +31,8 @@ app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 app.use('/api/auth', authRoutes);
 app.use('/api/scan', scanRoutes);
 app.use('/api/vulnerability', vulnerabilityRoutes);
+app.use('/api/cve', cveRoutes);
+app.use('/api/component', componentRoutes);
 
 // ── Error handler (must be last) ───────────────────────
 app.use(errorHandler);

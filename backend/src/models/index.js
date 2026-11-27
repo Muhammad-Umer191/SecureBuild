@@ -5,4 +5,5 @@ module.exports = {
   Scan: require('./Scan'),
   Finding: require('./Finding'),
   Component: require('./Component'),
+  CveCache: require('./CveCache'),
 };

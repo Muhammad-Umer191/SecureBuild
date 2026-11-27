@@ -2,10 +2,11 @@ import { apiFetch, request, USE_FAKE_API } from './client.js';
 
 const fake = () => import('./fake/index.js');
 
-/** GET /repos/:repoId/components */
+/** GET /component/show/:repoId -> { scan, items, page, limit, total, summary } */
 export async function listComponents(repoId, params = {}) {
   if (USE_FAKE_API) return (await fake()).listComponents(repoId, params);
-  return request(`/repos/${encodeURIComponent(repoId)}/components`, { query: params });
+  const res = await request(`/component/show/${encodeURIComponent(repoId)}`, { query: params });
+  return { ...res, items: (res.items || []).map((c) => ({ ...c, id: String(c.id ?? c._id) })) };
 }
 
 export function filenameFromDisposition(header) {
@@ -27,11 +28,11 @@ function sanitizeFilename(name) {
   return clean || null;
 }
 
-/** GET /repos/:repoId/sbom?format=cyclonedx -> { blob, filename } */
+/** GET /component/export/:repoId?format=cyclonedx -> { blob, filename } (always the latest scan) */
 export async function exportSbom(repoId, { scanId } = {}) {
   if (USE_FAKE_API) return (await fake()).exportSbom(repoId, { scanId });
-  const res = await apiFetch(`/repos/${encodeURIComponent(repoId)}/sbom`, {
-    query: { format: 'cyclonedx', scanId },
+  const res = await apiFetch(`/component/export/${encodeURIComponent(repoId)}`, {
+    query: { format: 'cyclonedx' },
     headers: { Accept: 'application/json' },
   });
   const blob = await res.blob();
