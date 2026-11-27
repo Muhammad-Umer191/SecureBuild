@@ -1,3 +1,4 @@
+// scanQueries.js – all DB operations for the scan / repo layer.
 const { Repo, Scan, Finding, Component } = require('../models');
 
 async function createRepo({ owner, url, name, status = 'idle' }) {
@@ -22,69 +23,32 @@ async function findLatestCompletedScan(repoId) {
   return Scan.findOne({ repo: repoId, status: 'completed' }).sort({ finishedAt: -1 });
 }
 
+// Upserts findings from a scan result; never resets existing ignore/status.
 async function upsertFindingsForScan(repoId, scanId, findings = []) {
-  let savedCount = 0;
+  let count = 0;
   for (const f of findings) {
     await Finding.findOneAndUpdate(
       { repo: repoId, vulnId: f.vulnId },
       {
-        $set: {
-          scan: scanId,
-          vulnId: f.vulnId,
-          aliases: f.aliases || [],
-          cveIds: f.cveIds || [],
-          summary: f.summary,
-          details: f.details || '',
-          package: f.package,
-          direct: f.direct ?? false,
-          cvssVector: f.cvssVector ?? null,
-          score: f.score ?? null,
-          severity: f.severity || 'unknown',
-          scoreSource: f.scoreSource ?? null,
-          hasFix: (f.fixedVersions || []).length > 0,
-          fixedVersions: f.fixedVersions || [],
-          recommendedFix: f.recommendedFix ?? null,
-          dependencyPath: f.dependencyPath || [],
-          references: f.references || [],
-          cwes: f.cwes || [],
-          cves: f.cves || [],
-          scoring: f.scoring,
-          published: f.published ? new Date(f.published) : null,
-          modified: f.modified ? new Date(f.modified) : null,
-        },
-        $setOnInsert: {
-          repo: repoId,
-          status: 'open',
-          ignore: null,
-          firstSeenAt: new Date(),
-        },
+        $set:        { scan: scanId, ...f, repo: repoId },
+        $setOnInsert: { status: 'open', ignore: null, firstSeenAt: new Date() },
       },
       { upsert: true, new: true },
     );
-    savedCount += 1;
+    count += 1;
   }
-  return savedCount;
+  return count;
 }
 
+// Replaces the SBOM (always the latest full snapshot).
 async function replaceComponentsForScan(repoId, scanId, components = []) {
   await Component.deleteMany({ repo: repoId });
-  if (components.length === 0) return 0;
-
-  const docs = components.map((c) => ({
-    repo: repoId,
-    scan: scanId,
-    name: c.name,
-    version: c.version,
-    ecosystem: c.ecosystem,
-    purl: c.purl,
-    direct: c.direct ?? false,
-    licenses: c.licenses || [],
-    vulnerabilityCount: c.vulnerabilityCount || 0,
-    maxSeverity: c.maxSeverity || null,
-  }));
-
-  await Component.insertMany(docs, { ordered: false });
-  return docs.length;
+  if (!components.length) return 0;
+  await Component.insertMany(
+    components.map((c) => ({ ...c, repo: repoId, scan: scanId })),
+    { ordered: false },
+  );
+  return components.length;
 }
 
 module.exports = {

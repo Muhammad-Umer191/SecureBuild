@@ -3,7 +3,8 @@ const app = require('./app');
 const config = require('./config');
 const connectDB = require('./config/db');
 const logger = require('./utils/logger');
-require('./worker');   // start the Bull queue processor
+// Background scan workers are spawned on-demand by dispatchScanJob() in worker/index.js
+// No persistent queue process needed here.
 
 (async () => {
   await connectDB();
