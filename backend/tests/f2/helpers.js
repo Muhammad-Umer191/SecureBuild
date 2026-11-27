@@ -5,20 +5,29 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 const config = require('../../src/config');
 const { User, Repo, Scan, Finding, Component } = require('../../src/models');
 
-/** Starts an in-memory MongoDB for the test file and empties it after each test. */
+/**
+ * Makes sure the test file has an in-memory MongoDB and empties it after each test.
+ * tests/setup.js (jest setupFilesAfterEnv) normally connects first; then that connection
+ * is reused. Only when nothing is connected (e.g. run without the jest config) is a
+ * database started here, and only that one is stopped afterwards.
+ */
 function useDatabase() {
-  let mongod;
+  let mongod = null;
   beforeAll(async () => {
-    mongod = await MongoMemoryServer.create();
-    await mongoose.connect(mongod.getUri());
+    if (mongoose.connection.readyState === 0) {
+      mongod = await MongoMemoryServer.create();
+      await mongoose.connect(mongod.getUri());
+    }
     await Promise.all(Object.values(mongoose.models).map((m) => m.syncIndexes()));
   }, 120000);
   afterEach(async () => {
     await Promise.all(Object.values(mongoose.connection.collections).map((c) => c.deleteMany({})));
   });
   afterAll(async () => {
-    await mongoose.disconnect();
-    if (mongod) await mongod.stop();
+    if (mongod) {
+      await mongoose.disconnect();
+      await mongod.stop();
+    }
   });
 }
 
