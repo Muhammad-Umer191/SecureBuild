@@ -13,9 +13,11 @@ const os = require('node:os');
 // JWT_SECRET or MONGO_URI never reach the child process.
 const GIT_ENV = {
   PATH: process.env.PATH,
+  ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
   GIT_TERMINAL_PROMPT: '0',       // fail instead of asking for a password
   GIT_CONFIG_NOSYSTEM: '1',       // ignore /etc/gitconfig
-  GIT_CONFIG_GLOBAL: os.devNull,  // ignore ~/.gitconfig
+  // Windows Git rejects '\\.\nul' (os.devNull) in GIT_CONFIG_GLOBAL with Invalid argument.
+  GIT_CONFIG_GLOBAL: process.platform === 'win32' ? '' : os.devNull,
   GIT_LFS_SKIP_SMUDGE: '1',       // don't download large LFS files
 };
 

@@ -43,12 +43,11 @@ When `VITE_USE_FAKE_API=false`, the new frontend modules call these endpoints (u
 | :--- | :--- | :--- |
 | Sign in | `POST /auth/login` | Body: `{ email, password }` -> `{ token, user }` |
 | Sign up | `POST /auth/register` | Body: `{ name, email, password }` -> `{ token, user }` |
-| Current user | `GET /auth/me` | `{ user }` (include `role`: `'admin' \| 'analyst' \| 'viewer'`) |
-| List repos | `GET /repos` | `{ items: [...] }` or `[...]` |
-| Add repo | `POST /repos` | Body: `{ url }` -> created repo object |
-| Remove repo | `DELETE /repos/:repoId` | `200 OK` |
-| Trigger scan | `POST /repos/:repoId/scans` | Created scan object |
-| Scan history | `GET /repos/:repoId/scans` | `{ items: [...] }` or `[...]` |
+| Current user | `GET /auth/me` | `{ user }` (`role` defaults to `'analyst'` if omitted) |
+| List repos | `GET /scan/fetchRepos` | `{ items: [...] }` |
+| Add repo | `POST /scan/addRepo` | Body: `{ url }` -> `{ repo, scan }` |
+| Trigger scan | `POST /scan/refreshRepo/:repoId` | `{ message, repo, scan }` |
+| Scan history | *(uses `repo.lastScan` in live mode)* | Full history list available in fake mode |
 
 ---
 

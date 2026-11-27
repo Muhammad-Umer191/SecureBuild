@@ -1,10 +1,16 @@
-import { request, USE_FAKE_API } from './client.js';
+import { USE_FAKE_API } from './client.js';
 
 const fake = () => import('./fake/portal.js');
 
-/** GET /repos/:repoId/scans -> { items: [...] } */
-export async function listScans(repoId) {
+/**
+ * Fetch scan runs for a repository.
+ * In fake mode, returns full mock history.
+ * In live mode, falls back to the repo's latest scan until a backend history route is added.
+ */
+export async function listScans(repoId, latestScan = null) {
   if (USE_FAKE_API) return (await fake()).listScans(repoId);
-  const data = await request(`/repos/${encodeURIComponent(repoId)}/scans`);
-  return Array.isArray(data) ? { items: data } : data;
+  return {
+    items: latestScan ? [latestScan] : [],
+    limitedToLatest: true,
+  };
 }

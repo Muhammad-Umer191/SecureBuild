@@ -3,6 +3,19 @@ import { request, getToken, USE_FAKE_API } from './client.js';
 const TOKEN_KEY = 'sb_token';
 const fake = () => import('./fake/portal.js');
 
+/**
+ * Normalize a user object from the backend.
+ * Backend currently omits `role`, so default to 'analyst' to keep UI actions usable.
+ */
+export function normalizeUser(raw) {
+  if (!raw || typeof raw !== 'object') return raw;
+  return {
+    ...raw,
+    id: String(raw.id ?? raw._id ?? ''),
+    role: raw.role || 'analyst',
+  };
+}
+
 /** Save the JWT token safely (some browsers block localStorage in strict mode). */
 export function saveToken(token) {
   try {
@@ -32,7 +45,7 @@ export async function login({ email, password }) {
     : await request('/auth/login', { method: 'POST', body: payload });
 
   if (data?.token) saveToken(data.token);
-  return data;
+  return { ...data, user: normalizeUser(data?.user) };
 }
 
 /**
@@ -49,7 +62,7 @@ export async function register({ name, email, password }) {
     : await request('/auth/register', { method: 'POST', body: payload });
 
   if (data?.token) saveToken(data.token);
-  return data;
+  return { ...data, user: normalizeUser(data?.user) };
 }
 
 /**
@@ -58,9 +71,9 @@ export async function register({ name, email, password }) {
  */
 export async function getMe() {
   if (!getToken()) return null;
-  if (USE_FAKE_API) return (await fake()).getMe();
+  if (USE_FAKE_API) return normalizeUser(await (await fake()).getMe());
   const data = await request('/auth/me');
-  return data?.user || data;
+  return normalizeUser(data?.user || data);
 }
 
 /** Clear local session state. */
