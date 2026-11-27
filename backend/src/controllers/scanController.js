@@ -60,16 +60,14 @@ exports.fetchRepos = async (req, res, next) => {
 
 /**
  * POST /api/scan/refreshRepo/:repoId
- * Spawns a background process to fetch new commits from the remote repo and update the local DB.
+ * Spawns a background process that runs a full scan again and saves the results, so new
+ * commits and newly published advisories are both picked up.
  */
 exports.refreshRepo = async (req, res, next) => {
   try {
     if (req.repo.status === 'scanning') {
       throw new ApiError(409, 'SCAN_IN_PROGRESS', 'A scan is already running for this repository');
     }
-
-    const latestScan = await scanQueries.findLatestCompletedScan(req.repo._id);
-    const lastCommitSha = latestScan ? latestScan.commitSha : null;
 
     const scan = await scanQueries.createScan({
       repo: req.repo._id,
@@ -85,7 +83,6 @@ exports.refreshRepo = async (req, res, next) => {
       repoId: req.repo._id.toString(),
       scanId: scan._id.toString(),
       repoUrl: req.repo.url,
-      lastCommitSha,
     });
 
     return res.status(202).json({

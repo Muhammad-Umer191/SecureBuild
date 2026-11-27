@@ -1,4 +1,4 @@
-// tests/endpoints/authTest.js – covers POST /api/auth/register, login, changePassword, GET /me
+// tests/endpoints/auth.test.js – covers POST /api/auth/register, login, changePassword, GET /me
 const request = require('supertest');
 const app     = require('../../src/app');
 

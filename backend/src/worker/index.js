@@ -7,8 +7,8 @@ const logger    = require('../utils/logger');
 const WORKER_SCRIPT = path.join(__dirname, 'scanWorker.js');
 
 /**
- * @param {{ mode: 'scan'|'refresh', repoId: string, scanId: string,
- *           repoUrl: string, lastCommitSha?: string|null }} payload
+ * @param {{ mode: 'scan'|'refresh', repoId: string, scanId: string, repoUrl: string }} payload
+ *        `mode` is a log label only; both modes run the same full scan.
  */
 function dispatchScanJob(payload) {
   const child = fork(WORKER_SCRIPT, [], { stdio: 'inherit', detached: false });

@@ -4,11 +4,10 @@
 //     scoreSource = 'cvelistV5', and a scoring explanation that says so
 //   - `cwes` from the CVE records when the advisory had none
 // Upstream failures never throw: the CVE entry just gets error: 'UPSTREAM_UNAVAILABLE'.
-const { Component, Finding } = require('../../models');
-const { SEVERITY_RANK, THRESHOLDS, isValidScore } = require('./cveRecord');
+const { BANDS, THRESHOLDS, isValidScore } = require('../common/severity');
+const { refreshComponentCounts } = require('../../queries/componentQueries');
 
 const MAX_CVES = 5;
-const BANDS = { critical: '9.0-10.0', high: '7.0-8.9', medium: '4.0-6.9', low: '0.1-3.9', none: '0.0' };
 
 function explain(score, severity, version) {
   return `Score ${score} (CVSS ${version || '?'}) taken from the CVE record in cvelistV5 (fallback lookup); `
@@ -21,14 +20,6 @@ function isUpToDate(finding, cveIds) {
   return cveIds.length > 0 && cveIds.every((id) => have.includes(id));
 }
 
-/** Keeps the SBOM row's "max severity" in step after a finding's severity changes. */
-async function refreshComponentSeverity(finding) {
-  const purl = finding.package && finding.package.purl;
-  if (!purl) return;
-  const open = await Finding.find({ repo: finding.repo, 'package.purl': purl, status: 'open' }).select('severity').lean();
-  const max = open.reduce((best, f) => ((SEVERITY_RANK[f.severity] ?? 0) > (SEVERITY_RANK[best] ?? -1) ? f.severity : best), null);
-  await Component.updateOne({ repo: finding.repo, purl }, { $set: { vulnerabilityCount: open.length, maxSeverity: max } });
-}
 
 /**
  * @param {import('mongoose').Document} finding  a Finding document (not lean)
@@ -72,8 +63,11 @@ async function enrichFinding(finding, cveLookup) {
   }
 
   await finding.save();
-  if (severityChanged) await refreshComponentSeverity(finding);
+  // Keep the SBOM row's "max severity" in step with the new score.
+  if (severityChanged && finding.package.purl) {
+    await refreshComponentCounts(finding.repo, finding.package.purl);
+  }
   return finding;
 }
 
-module.exports = { enrichFinding, refreshComponentSeverity };
+module.exports = { enrichFinding };

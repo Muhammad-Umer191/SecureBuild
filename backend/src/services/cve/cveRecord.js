@@ -3,37 +3,9 @@
 
 const CVE_ID_RE = /^CVE-(\d{4})-(\d{4,7})$/;
 
-const THRESHOLDS = Object.freeze({ critical: 9.0, high: 7.0, medium: 4.0, low: 0.1 });
-const SEVERITIES = ['critical', 'high', 'medium', 'low', 'none', 'unknown'];
-const SEVERITY_RANK = Object.freeze({ critical: 5, high: 4, medium: 3, low: 2, none: 1, unknown: 0 });
-
-const isValidScore = (s) => typeof s === 'number' && Number.isFinite(s) && s >= 0 && s <= 10;
-
-/** Score -> severity band. CVSS v2 has no "critical" band. */
-function severityFromScore(score, cvssVersion = '3.1') {
-  if (!isValidScore(score)) return 'unknown';
-  if (String(cvssVersion).startsWith('2')) {
-    if (score >= 7) return 'high';
-    if (score >= 4) return 'medium';
-    return 'low';
-  }
-  if (score >= THRESHOLDS.critical) return 'critical';
-  if (score >= THRESHOLDS.high) return 'high';
-  if (score >= THRESHOLDS.medium) return 'medium';
-  if (score >= THRESHOLDS.low) return 'low';
-  return 'none';
-}
-
-/** "CRITICAL", "Moderate", "important" -> our lowercase labels. */
-function normalizeSeverity(text) {
-  if (typeof text !== 'string') return null;
-  const t = text.trim().toLowerCase();
-  if (SEVERITIES.includes(t)) return t;
-  if (t === 'moderate') return 'medium';
-  if (t === 'important') return 'high';
-  if (t === 'info' || t === 'informational') return 'none';
-  return null;
-}
+const {
+  THRESHOLDS, SEVERITY_RANK, isValidScore, severityFromScore, normalizeSeverity,
+} = require('../common/severity');
 
 /**
  * Validate and normalise a CVE id. Returns null when invalid, so a request can be

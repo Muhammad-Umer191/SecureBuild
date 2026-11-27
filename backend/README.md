@@ -210,7 +210,7 @@ npx jest --forceExit --detectOpenHandles
 npx jest tests/endpoints --forceExit --detectOpenHandles --verbose
 
 # End-to-end tests only
-npx jest tests/endpoints/allEndpointsTest.js --forceExit --detectOpenHandles --verbose
+npx jest tests/endpoints/allEndpoints.test.js --forceExit --detectOpenHandles --verbose
 
 # Scanner service unit tests
 npx jest tests/services

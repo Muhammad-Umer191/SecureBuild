@@ -7,10 +7,8 @@
 //
 // Sanitised on purpose: no user ids, no ignore reasons, ignored findings left out.
 const { toCycloneDX } = require('./cyclonedx');
-
-const SEVERITY_UPPER = {
-  critical: 'CRITICAL', high: 'HIGH', medium: 'MEDIUM', low: 'LOW', none: 'NONE', unknown: 'UNKNOWN',
-};
+const { bySeverity } = require('./findings');
+const { normalizeSeverity } = require('./common/severity');
 
 function cvssOf(f) {
   if (typeof f.score !== 'number' || !f.cvssVector) return {};
@@ -44,13 +42,11 @@ function toPipelineFinding(f) {
     references: (f.references || []).map((r) => r.url).filter(Boolean),
     cvss: cvssOf(f),
     score: typeof f.score === 'number' ? f.score : null,
-    severity: SEVERITY_UPPER[f.severity] || 'UNKNOWN',
+    severity: (normalizeSeverity(f.severity) || 'unknown').toUpperCase(),
     fixedVersion: f.recommendedFix || (f.fixedVersions && f.fixedVersions[0]) || null,
     approximate: false,
   };
 }
-
-const RANK = { CRITICAL: 5, HIGH: 4, MEDIUM: 3, LOW: 2, NONE: 1, UNKNOWN: 0 };
 
 /**
  * @param {{repo: Object, scan: Object|null, components: Object[], findings: Object[]}} data  lean docs
@@ -62,9 +58,8 @@ function buildSbom({ repo, scan, components, findings }) {
   const pipelineFindings = findings
     .filter((f) => f.status !== 'ignored' && f.package && known.has(f.package.purl))
     .map(toPipelineFinding)
-    // B2's exporter expects findings worst first
-    .sort((a, b) => RANK[b.severity] - RANK[a.severity] || (b.score ?? -1) - (a.score ?? -1)
-      || a.vulnIds[0].localeCompare(b.vulnIds[0]));
+    // B2's exporter expects findings worst first, in the pipeline's own order
+    .sort(bySeverity);
 
   const bom = toCycloneDX({
     repoUrl: repo.url,

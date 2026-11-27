@@ -1,4 +1,4 @@
-// tests/endpoints/allEndpointsTest.js
+// tests/endpoints/allEndpoints.test.js
 // End-to-end test suite for all SecureBuild API endpoints + service integration.
 // Covers both positive flows (2xx) and negative/invalid inputs (4xx) and prints
 // each endpoint's returned status and JSON response.
