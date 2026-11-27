@@ -1,5 +1,6 @@
 const { Router } = require('express');
 const rateLimit = require('express-rate-limit');
+const config = require('../config');
 const validate = require('../middleware/validate');
 const authenticate = require('../middleware/auth');
 const schemas = require('../validators/authValidator');
@@ -12,6 +13,7 @@ const authLimiter = rateLimit({
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => config.nodeEnv === 'test',
   message: { error: { code: 'RATE_LIMITED', message: 'Too many attempts, try again later' } },
 });
 
