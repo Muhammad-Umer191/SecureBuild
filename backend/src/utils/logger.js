@@ -6,6 +6,7 @@ const logger = createLogger({
   format: format.combine(
     format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
     format.errors({ stack: true }),
+    format.splat(), // fills in %s / %d placeholders from the extra arguments
     format.printf(({ timestamp, level, message, stack }) =>
       stack
         ? `${timestamp} [${level.toUpperCase()}] ${message}\n${stack}`

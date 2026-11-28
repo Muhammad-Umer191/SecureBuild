@@ -1,5 +1,6 @@
 // componentQueries.js – DB reads for the SBOM tab (components of a repo).
 const { Component, Finding, Scan } = require('../models');
+const { SEVERITY_RANK } = require('../services/common/severity');
 
 const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -93,4 +94,30 @@ async function loadSbomData(repoId) {
   return { components, findings, latestScan };
 }
 
-module.exports = { listComponents, componentSummary, loadSbomData, buildComponentFilter };
+/**
+ * Recounts each component's open findings and worst severity (the SBOM tab's
+ * "vulns" and "max severity" columns). Pass `purl` to update just one component.
+ */
+async function refreshComponentCounts(repoId, purl = null) {
+  const scope = purl ? { repo: repoId, purl } : { repo: repoId };
+  const filter = purl ? { repo: repoId, status: 'open', 'package.purl': purl } : { repo: repoId, status: 'open' };
+  const open = await Finding.find(filter).select('package.purl severity').lean();
+
+  const byPurl = new Map();
+  for (const f of open) {
+    const row = byPurl.get(f.package.purl) || { count: 0, max: null };
+    row.count += 1;
+    if (row.max === null || (SEVERITY_RANK[f.severity] ?? 0) > (SEVERITY_RANK[row.max] ?? 0)) row.max = f.severity;
+    byPurl.set(f.package.purl, row);
+  }
+
+  // Components without open findings go back to 0 / none.
+  await Component.updateMany(scope, { $set: { vulnerabilityCount: 0, maxSeverity: null } });
+  for (const [p, { count, max }] of byPurl) {
+    await Component.updateOne({ repo: repoId, purl: p }, { $set: { vulnerabilityCount: count, maxSeverity: max } });
+  }
+}
+
+module.exports = {
+  listComponents, componentSummary, loadSbomData, buildComponentFilter, refreshComponentCounts,
+};

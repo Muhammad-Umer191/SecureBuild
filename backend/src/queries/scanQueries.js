@@ -19,13 +19,9 @@ async function createScan(data) {
   return Scan.create(data);
 }
 
-async function findLatestCompletedScan(repoId) {
-  return Scan.findOne({ repo: repoId, status: 'completed' }).sort({ finishedAt: -1 });
-}
-
-// Upserts findings from a scan result; never resets existing ignore/status.
-async function upsertFindingsForScan(repoId, scanId, findings = []) {
-  let count = 0;
+// Saves a scan's findings: upserts by vulnId (so an "ignored" status is never reset)
+// and removes findings the latest scan no longer reports.
+async function replaceFindingsForScan(repoId, scanId, findings = []) {
   for (const f of findings) {
     await Finding.findOneAndUpdate(
       { repo: repoId, vulnId: f.vulnId },
@@ -35,9 +31,9 @@ async function upsertFindingsForScan(repoId, scanId, findings = []) {
       },
       { upsert: true, new: true },
     );
-    count += 1;
   }
-  return count;
+  await Finding.deleteMany({ repo: repoId, vulnId: { $nin: findings.map((f) => f.vulnId) } });
+  return findings.length;
 }
 
 // Replaces the SBOM (always the latest full snapshot).
@@ -56,7 +52,6 @@ module.exports = {
   findRepoByOwnerAndUrl,
   findReposByOwner,
   createScan,
-  findLatestCompletedScan,
-  upsertFindingsForScan,
+  replaceFindingsForScan,
   replaceComponentsForScan,
 };

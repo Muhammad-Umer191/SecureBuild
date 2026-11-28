@@ -1,4 +1,4 @@
-// tests/endpoints/scanTest.js – covers POST /api/scan/addRepo, GET /fetchRepos, POST /refreshRepo/:repoId
+// tests/endpoints/scan.test.js – covers POST /api/scan/addRepo, GET /fetchRepos, POST /refreshRepo/:repoId
 // The real scanner pipeline is mocked so tests are fast and offline.
 const request = require('supertest');
 const app     = require('../../src/app');
@@ -9,14 +9,6 @@ jest.mock('../../src/services/scannerService', () => ({
     commitSha:  'abc1234def5678',
     findings:   [],
     components: [],
-    cyclonedx:  {},
-  }),
-  refreshRepository: jest.fn().mockResolvedValue({
-    hasNewCommits: true,
-    commitSha:     'bcd2345ef0',
-    findings:      [],
-    components:    [],
-    cyclonedx:     {},
   }),
 }));
 

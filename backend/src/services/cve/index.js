@@ -8,7 +8,7 @@
 // (cheap when already done), so nothing is missed if the worker doesn't.
 // Import from here (require('./services/cve')).
 const { createCveLookup, memoryCache, mongoCache } = require('./cveLookup');
-const { enrichFinding, refreshComponentSeverity } = require('./enrichFinding');
+const { enrichFinding } = require('./enrichFinding');
 const cveRecord = require('./cveRecord');
 
 let defaultLookup = null;
@@ -23,6 +23,5 @@ module.exports = {
   memoryCache,
   mongoCache,
   enrichFinding: (finding, lookup = getCveLookup()) => enrichFinding(finding, lookup),
-  refreshComponentSeverity,
   ...cveRecord,
 };

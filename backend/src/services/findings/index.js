@@ -129,5 +129,5 @@ function buildFindings(components, matches, { registry = defaultRegistry } = {})
   };
 }
 
-// severityFromScore is shared with the CycloneDX export.
-module.exports = { buildFindings, severityFromScore };
+// severityFromScore is shared with the CycloneDX export; bySeverity with the SBOM export.
+module.exports = { buildFindings, severityFromScore, bySeverity, isMalware };

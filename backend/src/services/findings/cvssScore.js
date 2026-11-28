@@ -9,6 +9,7 @@
 // formulas, so each vector is scored with the class for its version.
 const { Cvss3P0, Cvss3P1, Cvss4P0 } = require('ae-cvss-calculator');
 const { isObject } = require('../common/objects');
+const severity = require('../common/severity');
 
 const CALCULATORS = [
   ['CVSS:3.0/', Cvss3P0, 'v31'],   // 3.0 and 3.1 share the "v31" slot of the contract
@@ -27,7 +28,7 @@ function githubSeverity(label) {
   return ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].includes(s) ? s : undefined;
 }
 
-const SEVERITY_RANK = { CRITICAL: 5, HIGH: 4, MEDIUM: 3, LOW: 2, NONE: 1, UNKNOWN: 0 };
+const SEVERITY_RANK = severity.SEVERITY_RANK_UPPER;
 
 /**
  * @param {string} vector
@@ -48,12 +49,7 @@ function scoreVector(vector) {
 
 /** Standard CVSS bands: 9.0+ CRITICAL, 7.0+ HIGH, 4.0+ MEDIUM, above 0 LOW, 0 NONE. */
 function severityFromScore(score) {
-  if (score === null || score === undefined) return 'UNKNOWN';
-  if (score >= 9.0) return 'CRITICAL';
-  if (score >= 7.0) return 'HIGH';
-  if (score >= 4.0) return 'MEDIUM';
-  if (score > 0) return 'LOW';
-  return 'NONE';
+  return severity.severityFromScore(score).toUpperCase();
 }
 
 /**
